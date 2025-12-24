@@ -1,10 +1,7 @@
 import socket
 import qrcode
 import os
-import pyautogui
 from datetime import datetime
-import tkinter as tk
-from tkinter import filedialog
 
 def get_local_ip():
     """
@@ -54,6 +51,7 @@ def take_screenshot(save_dir="static/screenshots"):
     filename = f"screenshot_{timestamp}.png"
     filepath = os.path.join(save_dir, filename)
     
+    import pyautogui
     screenshot = pyautogui.screenshot()
     screenshot.save(filepath)
     
@@ -64,6 +62,9 @@ def select_file():
     Opens a file dialog to select a file.
     Returns the absolute path of the selected file, or None.
     """
+    import tkinter as tk
+    from tkinter import filedialog
+    
     root = tk.Tk()
     root.withdraw() # Hide the main window
     root.attributes('-topmost', True) # Bring to front
