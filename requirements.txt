@@ -1,0 +1,10 @@
+flask
+opencv-python
+mediapipe
+qrcode[pil]
+Pillow
+pynput
+pyautogui
+requests
+numpy
+gunicorn

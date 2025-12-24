@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Data is Ready</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>Transfer Complete</h1>
+                <p>Your screen data has been securely swapped.</p>
+            </div>
+
+            <div class="preview-container">
+                <img src="{{ url_for('serve_file', filename=filename) }}" alt="Screen Capture" class="preview-image">
+            </div>
+
+            <div class="actions">
+                <a href="{{ url_for('serve_file', filename=filename) }}" class="btn-download" download>
+                    Download File
+                </a>
+            </div>
+
+            <div class="footer">
+                <p>@data swap</p>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

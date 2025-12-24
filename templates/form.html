@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Details</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('/static/background.png') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #fff;
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            width: 350px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 1.5rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            outline: none;
+            box-sizing: border-box;
+            transition: 0.3s;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Radio Button Styling */
+        .status-group {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+
+        .status-option {
+            cursor: pointer;
+        }
+
+        .status-option input[type="radio"] {
+            display: none;
+        }
+
+        .status-option span {
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            transition: 0.3s;
+            display: inline-block;
+            border: 1px solid transparent;
+        }
+
+        .status-option input:checked+span {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: #fff;
+            font-weight: bold;
+        }
+
+        .status-option input[value="Accepted"]:checked+span {
+            background: rgba(0, 255, 0, 0.2);
+            border-color: #0f0;
+        }
+
+        .status-option input[value="Rejected"]:checked+span {
+            background: rgba(255, 0, 0, 0.2);
+            border-color: #f00;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            background: #00d2ff;
+            background: linear-gradient(to right, #00d2ff, #3a7bd5);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .message {
+            margin-top: 20px;
+            font-size: 1rem;
+            padding: 10px;
+            border-radius: 5px;
+            min-height: 20px;
+        }
+
+        .success-msg {
+            color: #d4edda;
+            background-color: rgba(40, 167, 69, 0.2);
+            border: 1px solid #28a745;
+        }
+
+        .error-msg {
+            color: #f8d7da;
+            background-color: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+        }
+
+        .capture-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        /* WEB HUD BANNERS */
+        .hud-banner {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000;
+            color: #00ff00;
+            padding: 10px 40px;
+            border-radius: 10px;
+            font-weight: 900;
+            font-size: 1.2rem;
+            box-shadow: 0 10px 30px rgba(0, 255, 0, 0.3);
+            border: 2px solid #00ff00;
+            z-index: 1000;
+            white-space: nowrap;
+            display: none;
+            animation: bannerSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bannerSlideIn {
+            from {
+                top: -60px;
+                opacity: 0;
+            }
+
+            to {
+                top: -20px;
+                opacity: 1;
+            }
+        }
+
+        .ready-status {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            color: #333;
+            padding: 5px 20px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border: 1px solid #00d2ff;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        .ready-status .dot {
+            width: 10px;
+            height: 10px;
+            background: #00ff00;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse-green 1s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7);
+            }
+
+            70% {
+                transform: scale(1.2);
+                box-shadow: 0 0 0 10px rgba(0, 255, 0, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(0, 255, 0, 0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="web-hud-banner" class="hud-banner">FILE SUCCESSFULLY SEND</div>
+        <div id="ready-status" class="ready-status">
+            <span class="dot"></span> READY TO COMMAND
+        </div>
+
+
+        <h2>Enter Details</h2>
+        <form id="detailsForm" action="/submit_form" method="POST">
+            <input type="text" id="rollno" name="rollno" placeholder="Roll Number" required>
+            <input type="text" id="name" name="name" placeholder="Name" required>
+
+            <div class="status-group">
+                <label class="status-option">
+                    <input type="radio" name="status" value="Accepted" required>
+                    <span>Accepted</span>
+                </label>
+                <label class="status-option">
+                    <input type="radio" name="status" value="Rejected">
+                    <span>Rejected</span>
+                </label>
+            </div>
+
+            <button type="submit">Submit Details</button>
+        </form>
+        <div class="message" id="message"></div>
+    </div>
+
+
+    <script>
+        setInterval(() => {
+            fetch('/status')
+                .then(res => res.json())
+                .then(data => {
+                    // UPDATE WEB HUD BANNERS
+                    const hudBanner = document.getElementById('web-hud-banner');
+                    if (data.hud_message) {
+                        hudBanner.innerText = data.hud_message;
+                        hudBanner.style.display = 'block';
+                    } else {
+                        hudBanner.style.display = 'none';
+                    }
+
+                    const readyStatus = document.getElementById('ready-status');
+                    if (data.is_hand_detected && !data.hud_message) {
+                        readyStatus.style.display = 'flex';
+                    } else {
+                        readyStatus.style.display = 'none';
+                    }
+                })
+                .catch(err => console.error(err));
+        }, 500);
+    </script>
+</body>
+
+</html>
