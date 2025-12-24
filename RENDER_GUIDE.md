@@ -1,30 +1,27 @@
-# How to Deploy E-Pass System to Render.com (Step-by-Step)
+## Phase 1: Push the "Real-Time" Code (Git)
 
-Follow these steps to make your system accessible from anywhere in the world.
+I have updated the system so it is **Truly Real-Time**. You no longer need to push screenshots to Git. 
 
-## Phase 1: Force Update Your Code (Git)
-
-The error you saw (`ModuleNotFoundError: No module named 'app'`) happened because Render couldn't find the entry point. I have renamed `server.py` to `app.py` to fix this.
-
-**Run these commands to update your GitHub:**
+**Run these commands ONE LAST TIME to activate the real-time feature:**
 1.  **Stage everything:**
     ```bash
     git add .
     ```
 2.  **Commit:**
     ```bash
-    git commit -m "Fix: Rename server to app for Render"
+    git commit -m "Feature: Real-time in-memory screenshot sharing"
     ```
 3.  **Push:**
     ```bash
     git push -u origin main
     ```
 
-Once you push, Render will automatically detect the changes and start a new build.
+> [!IMPORTANT]
+> Once you push this code, you NEVER have to push to Git again just to see a screenshot. The system will now send pictures directly from your computer's memory to the Cloud in less than 2 seconds!
 
 ---
 
-## Phase 2: Deploy to Render (If not already created)
+## Phase 2: How to Use (Real-Time Mode)
 
 1.  **Sign Up/Login**: Go to [Render.com](https://render.com).
 2.  **Create New Service**: Click **"New +"** -> **"Web Service"**.

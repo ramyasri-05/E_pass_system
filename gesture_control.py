@@ -10,7 +10,7 @@ import requests
 import webbrowser
 import numpy as np
 import os
-from utils import get_local_ip, generate_qr, take_screenshot, select_file
+from utils import get_local_ip, generate_qr, get_screenshot_buffer, select_file, is_duplicate
 import pyautogui
 from pynput import keyboard
 from mediapipe.tasks import python
@@ -50,8 +50,9 @@ SERVER_URL = "https://e-pass-system.onrender.com"
 SERVER_PORT = 5000 # Used for local startup fallback
 
 
-# Global variable for selected file
-pending_file = None
+# State Variables
+pending_buffer = None
+pending_filename = None
 trigger_selection = False
 
 def on_activate_selection():
@@ -136,7 +137,7 @@ def set_server_message(msg):
     print(f"[SYSTEM]: {msg}")
 
 def main():
-    global pending_file, trigger_selection
+    global pending_buffer, pending_filename, trigger_selection
     
     # server_thread = threading.Thread(target=server.start_server, daemon=True)
     # server_thread.start()
@@ -480,8 +481,7 @@ def main():
                     time.sleep(2.0)
                     
                     try:
-                        filename = take_screenshot()
-                        new_filepath = os.path.join(os.path.dirname(__file__), "static", "screenshots", filename)
+                        buffer, filename = get_screenshot_buffer()
                         
                         # New Logic: Face Fit (Smart Crop)
                         try:
@@ -558,11 +558,11 @@ def main():
                             print("Waiting 3s for UI update...")
                             time.sleep(3)
                                 
-                            # Retake UI Screenshot
-                            if os.path.exists(new_filepath): os.remove(new_filepath)
-                            pyautogui.screenshot().save(new_filepath)
+                            # Retake UI Screenshot (Now In-Memory)
+                            buffer, filename = get_screenshot_buffer()
                                 
-                            pending_file = new_filepath
+                            pending_buffer = buffer
+                            pending_filename = filename
                             notification_text = "Captured. Gesture to Send."
                             set_server_message("Captured. Gesture to Send.")
                             # Web HUD Update
@@ -590,11 +590,12 @@ def main():
                         set_server_message(msg)
                         print(msg)
                         
-                        def share_func(f_path, send_data):
+                        def share_func(buffer, filename, send_data):
                             try:
-                                if f_path and os.path.exists(f_path):
-                                    with open(f_path, 'rb') as f:
-                                        requests.post(f"{SERVER_URL}/update_state", files={'file': f}, timeout=10)
+                                if buffer:
+                                    requests.post(f"{SERVER_URL}/update_state", 
+                                                 files={'file': (filename, buffer, 'image/jpeg')}, 
+                                                 timeout=10)
                                     time.sleep(1)
                                 if send_data:
                                     requests.post(f"{SERVER_URL}/commit_pending_data", timeout=5)
@@ -606,39 +607,31 @@ def main():
                             except Exception as e:
                                 print(f"Sharing Error: {e}")
                         
-                        threading.Thread(target=share_func, args=(pending_file, has_server_data), daemon=True).start()
-                        pending_file = None
+                        threading.Thread(target=share_func, 
+                                         args=(pending_buffer, pending_filename, has_server_data), 
+                                         daemon=True).start()
+                        
+                        pending_buffer = None
+                        pending_filename = None
                         notification_text = "SENDED SUCCESSFULLY"
                         set_server_message("SENDED SUCCESSFULLY")
                         notification_end_time = time.time() + 3.0
                     else:
-                        # CASE 2: Nothing pending -> CAPTURE CURRENT SCREEN
+                        # CASE 2: Nothing pending -> CAPTURE CURRENT SCREEN (IN-MEMORY)
                         msg = "Capturing Full Screen..."
                         set_server_message(msg)
                         print(msg)
                         try:
-                            filename = take_screenshot() # Basic full-screen capture
-                            new_filepath = os.path.join(os.path.dirname(__file__), "static", "screenshots", filename)
+                            buffer, filename = get_screenshot_buffer()
                             
-                            # DUPLICATE DETECTION
-                            if is_duplicate(new_filepath, last_sent_screenshot_path):
-                                msg = "No Changes Detected. Skipping."
-                                print(msg)
-                                set_server_message(msg)
-                                notification_text = "SAME SCREEN DETECTED"
-                                # Web HUD Update
-                                requests.post(f"{SERVER_URL}/update_hud", 
-                                              json={"message": "SAME SCREEN DETECTED", "duration": 3})
-                                notification_end_time = time.time() + 2.0
-                                os.remove(new_filepath) # Clean up
-                            else:
-                                pending_file = new_filepath
-                                last_sent_screenshot_path = new_filepath
-                                notification_text = "READY TO SEND"
-                                set_server_message("READY TO SEND")
-                                # Web HUD Update
-                                requests.post(f"{SERVER_URL}/update_hud", 
-                                              json={"message": "READY TO SEND", "duration": 5})
+                            # Skip duplicate detection for now to prioritize "Real Time" simplicity
+                            pending_buffer = buffer
+                            pending_filename = filename
+                            notification_text = "READY TO SEND"
+                            set_server_message("READY TO SEND")
+                            # Web HUD Update
+                            requests.post(f"{SERVER_URL}/update_hud", 
+                                          json={"message": "READY TO SEND", "duration": 5})
                                 notification_end_time = time.time() + 3.0
                         except Exception as e:
                             print(f"Universal Capture Error: {e}")

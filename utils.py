@@ -40,22 +40,27 @@ def generate_qr(data, filename="qrcode.png"):
     img.save(save_path)
     return save_path
 
-def take_screenshot(save_dir="static/screenshots"):
+def get_screenshot_buffer():
     """
-    Takes a screenshot and saves it with a timestamp.
+    Captures the screen and returns it as an in-memory JPEG buffer.
     """
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    import pyautogui
+    from io import BytesIO
+    import numpy as np
+    import cv2
+    
+    screenshot = pyautogui.screenshot()
+    # Convert PIL Image to BytesIO
+    buffer = BytesIO()
+    screenshot.save(buffer, format="JPEG", quality=70) # Compress for faster cloud upload
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"screenshot_{timestamp}.png"
-    filepath = os.path.join(save_dir, filename)
+    filename = f"screenshot_{timestamp}.jpg"
     
-    import pyautogui
-    screenshot = pyautogui.screenshot()
-    screenshot.save(filepath)
-    
-    return filename
+    return buffer.getvalue(), filename
+
+def take_screenshot(save_dir="static/screenshots"):
+    # Keeping this for legacy/local mode if needed, but get_screenshot_buffer is preferred.
 
 def select_file():
     """
