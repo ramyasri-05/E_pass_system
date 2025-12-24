@@ -632,7 +632,7 @@ def main():
                             # Web HUD Update
                             requests.post(f"{SERVER_URL}/update_hud", 
                                           json={"message": "READY TO SEND", "duration": 5})
-                                notification_end_time = time.time() + 3.0
+                            notification_end_time = time.time() + 3.0
                         except Exception as e:
                             print(f"Universal Capture Error: {e}")
         

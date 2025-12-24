@@ -60,8 +60,8 @@ def get_screenshot_buffer():
     return buffer.getvalue(), filename
 
 def take_screenshot(save_dir="static/screenshots"):
-    # Keeping this for legacy/local mode if needed, but get_screenshot_buffer is preferred.
-
+    """Legacy function - replaced by in-memory buffer."""
+    pass
 def select_file():
     """
     Opens a file dialog to select a file.
