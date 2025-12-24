@@ -184,6 +184,8 @@ def main():
     cooldown = 0.5 # Faster successive actions
     
     last_status_check_time = 0 # New variable to throttle server polling
+    last_frame_push_time = 0   # New variable to throttle video uploads
+    frame_push_lock = threading.Lock() # Ensure one upload at a time
     
     gesture_start_time = 0
     current_stable_gesture = None
@@ -283,16 +285,21 @@ def main():
         except: pass
 
         # Method 2: POST to server (Fallback/Multi-process support)
-        if int(current_time * 10) % 2 == 0: # 5Hz update to avoid overwhelming network
-            def push_frame(frame):
-                try:
-                    _, img_encoded = cv2.imencode('.jpg', frame)
-                    requests.post(f"{SERVER_URL}/update_frame", 
-                                 files={'frame': ('frame.jpg', img_encoded.tobytes(), 'image/jpeg')},
-                                 timeout=0.3)
-
-                except: pass
-            threading.Thread(target=push_frame, args=(img.copy(),), daemon=True).start()
+        # Stricter throttling for Cloud deployment (Max 2 FPS)
+        if current_time - last_frame_push_time > 0.5: 
+             if frame_push_lock.acquire(blocking=False):
+                last_frame_push_time = current_time
+                def push_frame(frame):
+                    try:
+                        _, img_encoded = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 60]) # Lower quality for faster upload
+                        requests.post(f"{SERVER_URL}/update_frame", 
+                                     files={'frame': ('frame.jpg', img_encoded.tobytes(), 'image/jpeg')},
+                                     timeout=1.0) # More generous timeout
+                    except: pass
+                    finally:
+                        frame_push_lock.release()
+                
+                threading.Thread(target=push_frame, args=(img.copy(),), daemon=True).start()
 
 
         
@@ -585,11 +592,12 @@ def main():
                         
                         def share_func(f_path, send_data):
                             try:
-                                if f_path:
-                                    requests.post(f"{SERVER_URL}/update_state", json={"filepath": f_path})
+                                if f_path and os.path.exists(f_path):
+                                    with open(f_path, 'rb') as f:
+                                        requests.post(f"{SERVER_URL}/update_state", files={'file': f}, timeout=10)
                                     time.sleep(1)
                                 if send_data:
-                                    requests.post(f"{SERVER_URL}/commit_pending_data")
+                                    requests.post(f"{SERVER_URL}/commit_pending_data", timeout=5)
                                     time.sleep(1)
                                 set_server_message("SENDED SUCCESSFULLY")
                                 # Web HUD Update

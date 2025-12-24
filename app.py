@@ -240,26 +240,36 @@ def commit_pending_data():
 def update_state():
     """
     Called by the gesture script. 
-    Accepts 'filename' (if already in static) OR 'filepath' (absolute path to copy).
+    Accepts 'filename' (if already in static) OR an uploaded 'file'.
     """
-    data = request.json
-    filename = data.get('filename')
-    filepath = data.get('filepath')
+    final_filename = None
     
-    final_filename = filename
-    
-    # If a full filepath is provided (selected file), copy it to static dir
-    if filepath and os.path.exists(filepath):
-        try:
-            basename = os.path.basename(filepath)
-            # Prepend timestamp to ensure uniqueness and order
+    # 1. Handle File Upload (Cloud Mode)
+    if 'file' in request.files:
+        file = request.files['file']
+        if file.filename != '':
             timestamp_str = str(int(time.time()))
-            final_filename = f"{timestamp_str}_{basename}"
+            final_filename = f"{timestamp_str}_{file.filename}"
             destination = os.path.join(SHARED_DIR, final_filename)
-            shutil.copy2(filepath, destination)
-        except Exception as e:
-            print(f"Error copying file: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
+            file.save(destination)
+    
+    # 2. Handle filepath (Local Mode - legacy/fallback)
+    elif request.is_json:
+        data = request.json
+        filename = data.get('filename')
+        filepath = data.get('filepath')
+        final_filename = filename
+        
+        if filepath and os.path.exists(filepath):
+            try:
+                basename = os.path.basename(filepath)
+                timestamp_str = str(int(time.time()))
+                final_filename = f"{timestamp_str}_{basename}"
+                destination = os.path.join(SHARED_DIR, final_filename)
+                shutil.copy2(filepath, destination)
+            except Exception as e:
+                print(f"Error copying file: {e}")
+                return jsonify({"status": "error", "message": str(e)}), 500
 
     if final_filename:
         with history_lock:
@@ -270,7 +280,7 @@ def update_state():
             })
         return jsonify({"status": "success"})
     
-    return jsonify({"status": "error", "message": "No filename or filepath provided"}), 400
+    return jsonify({"status": "error", "message": "No file or filename provided"}), 400
 
 @app.route('/files/<filename>')
 def serve_file(filename):
