@@ -5,7 +5,7 @@ import mediapipe as mp
 import time
 from datetime import datetime
 import threading
-import server
+import app as server
 import requests
 import webbrowser
 import numpy as np
@@ -46,7 +46,7 @@ def draw_landmarks(image, landmarks):
 # SERVER CONFIGURATION
 # Set this to your Cloud URL (e.g., https://e-pass-system.onrender.com)
 # Leave as "http://127.0.0.1:5000" for local testing
-SERVER_URL = "http://127.0.0.1:5000" 
+SERVER_URL = "https://e-pass-system.onrender.com" 
 SERVER_PORT = 5000 # Used for local startup fallback
 
 
@@ -120,7 +120,7 @@ def check_connection_status():
     Polls the server to check if a client has connected.
     """
     try:
-        response = requests.get(f"{SERVER_URL}/status")
+        response = requests.get(f"{SERVER_URL}/status", timeout=1.0)
 
         if response.status_code == 200:
             return response.json().get('connected', False)
@@ -183,6 +183,8 @@ def main():
     last_action_time = 0
     cooldown = 0.5 # Faster successive actions
     
+    last_status_check_time = 0 # New variable to throttle server polling
+    
     gesture_start_time = 0
     current_stable_gesture = None
     HOLD_DURATION = 0.5 # More intentional
@@ -218,11 +220,17 @@ def main():
     should_run_capture = False 
 
     while True:
-        # Re-check server state for HUD Accuracy
-        try:
-            r = requests.get(f"{SERVER_URL}/has_pending")
-            has_server_data = r.json().get('data', False)
-        except: has_server_data = False
+        current_time = time.time()
+        # Re-check server state for HUD Accuracy (Throttled)
+        if current_time - last_status_check_time > 0.5: # Sync every 0.5s instead of every frame
+            try:
+                r = requests.get(f"{SERVER_URL}/has_pending", timeout=0.5)
+                has_server_data = r.json().get('data', False)
+            except: has_server_data = False
+        else:
+            try: has_server_data = has_server_data # Keep old value
+            except: has_server_data = False
+
         
         # Check Global Hotkey Trigger
         if trigger_selection:
@@ -255,7 +263,7 @@ def main():
         if not success:
             break
             
-        current_time = time.time()
+
         # hold_time is NO LONGER reset to 0 every frame
         # Instead, it persists unless hand is gone for more than 0.2s 
         if current_time - last_detected_time > 0.2:
@@ -281,7 +289,8 @@ def main():
                     _, img_encoded = cv2.imencode('.jpg', frame)
                     requests.post(f"{SERVER_URL}/update_frame", 
                                  files={'frame': ('frame.jpg', img_encoded.tobytes(), 'image/jpeg')},
-                                 timeout=0.05)
+                                 timeout=0.3)
+
                 except: pass
             threading.Thread(target=push_frame, args=(img.copy(),), daemon=True).start()
 
@@ -294,8 +303,9 @@ def main():
         
         current_time = time.time()
         
-        # Check Connection State periodically
-        if system_state == "SCANNING" and int(current_time) % 2 == 0:
+        # Check Connection State periodically (Throttled to every 2 seconds)
+        if system_state == "SCANNING" and (current_time - last_status_check_time > 2.0):
+            last_status_check_time = current_time
             if check_connection_status():
                  system_state = "CONNECTED" # Changed from BACKGROUND to keep window open
                  msg = "System Ready. Waiting for Command."
