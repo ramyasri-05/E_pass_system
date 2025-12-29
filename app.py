@@ -34,6 +34,7 @@ is_hand_detected = False
 
 # Gesture-Triggered Shared Data
 pending_data = None # Stores {name, rollno, status} until gesture commits it
+history = [] # Stores list of shared files/data
 history_lock = threading.Lock() # Reusing lock for simplicityto static image
 
 # Manual Trigger State
