@@ -558,15 +558,15 @@ def main():
                                 requests.post(f"{SERVER_URL}/set_capture_flag", json={"captured": False})
                             except: pass
                             
-                            msg = "GET READY! CAPTURING IN 2s..."
+                            msg = "GET READY! CAPTURING IN 1s..."
                             set_server_message(msg)
                             # Web HUD Sync
-                            try: requests.post(f"{SERVER_URL}/update_hud", json={"message": msg, "duration": 3})
+                            try: requests.post(f"{SERVER_URL}/update_hud", json={"message": msg, "duration": 2})
                             except: pass
                             print(msg)
                             
                             # 2. GIVE USER TIME TO POSE (Seeing live feed)
-                            time.sleep(2.0)
+                            time.sleep(1.0)
                             
                             try:
                                 buffer, filename = get_screenshot_buffer()
