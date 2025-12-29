@@ -227,7 +227,10 @@
         }
 
         function pollForUpdates() {
-            fetch(`/poll?timestamp=${lastTimestamp}`)
+            const urlParams = new URLSearchParams(window.location.search);
+            const sid = urlParams.get('sid') || '';
+
+            fetch(`/poll?timestamp=${lastTimestamp}&sid=${sid}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.new && data.files.length > 0) {

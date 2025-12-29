@@ -18,9 +18,10 @@ if not os.path.exists(SHARED_DIR):
 
 
 # Global state
-history = []
 history_lock = threading.Lock()
 client_connected = False
+import uuid
+current_sid = str(uuid.uuid4()) # Initialize with random SID so empty old sessions can't connect
 
 # Video Streaming State
 latest_frame = None
@@ -103,7 +104,11 @@ def submit_form():
 @app.route('/poll')
 def poll():
     global client_connected
-    client_connected = True
+    
+    # Only consider it a valid connection if the session ID matches
+    sid = request.args.get('sid', '')
+    if sid == current_sid:
+        client_connected = True
     
     client_timestamp = request.args.get('timestamp', 0, type=float)
     
@@ -140,6 +145,17 @@ def status():
         "hud_message": hud_message,
         "is_hand_detected": is_hand_detected
     })
+
+@app.route('/reset_connection', methods=['POST'])
+def reset_connection():
+    global client_connected, pending_data, is_captured, current_sid
+    import string, random
+    current_sid = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    client_connected = False
+    pending_data = None
+    is_captured = False
+    print(f"[SYSTEM] Connection State Reset. New SID: {current_sid}")
+    return jsonify({"status": "success", "message": "Connection state reset", "sid": current_sid})
 
 def generate_frames():
     global latest_frame

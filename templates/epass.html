@@ -427,6 +427,16 @@
                 triggerCapture();
             }
         });
+
+        // AUTOMATIC TRIGGER: Start capture sequence 1 second after page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (!isStatic) {
+                    console.log("[SYSTEM] Auto-triggering capture...");
+                    triggerCapture();
+                }
+            }, 1000);
+        });
     </script>
 </body>
 
