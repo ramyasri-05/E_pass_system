@@ -144,6 +144,32 @@ def minimize_window(title):
     except Exception as e:
         print(f"Window Minimize Error: {e}")
 
+def is_fist(landmarks):
+    # Check if fingers are folded (Tip closer to wrist than PIP)
+    # Wrist is index 0
+    wrist = landmarks[0]
+    
+    # Finger Tips: 8 (Index), 12 (Middle), 16 (Ring), 20 (Pinky)
+    # Finger PIPs: 6, 10, 14, 18
+    # format: (tip_idx, pip_idx)
+    fingers = [(8, 6), (12, 10), (16, 14), (20, 18)]
+    
+    folded_count = 0
+    for tip_idx, pip_idx in fingers:
+        tip = landmarks[tip_idx]
+        pip = landmarks[pip_idx]
+        
+        # Calculate distance to wrist (2D Euclidean)
+        dist_tip = ((tip.x - wrist.x)**2 + (tip.y - wrist.y)**2)**0.5
+        dist_pip = ((pip.x - wrist.x)**2 + (pip.y - wrist.y)**2)**0.5
+        
+        # If tip is closer to wrist than PIP, it's folded
+        if dist_tip < dist_pip:
+            folded_count += 1
+            
+    # If 3 or more fingers are folded, consider it a fist
+    return folded_count >= 3, folded_count
+
 def main():
     global pending_buffer, pending_filename, trigger_selection
     
@@ -242,7 +268,7 @@ def main():
     
     gesture_start_time = 0
     current_stable_gesture = None
-    HOLD_DURATION = 0.5 # More intentional
+    HOLD_DURATION = 0.3 # Reduced from 0.5s for easier triggering
     last_detected_time = 0 # Persistence buffer 
     
     # State for Duplicate Detection
@@ -514,8 +540,34 @@ def main():
                         # 1. Proximity and Centering Check
                         hand_close = is_hand_close(hand_lms, img.shape)
                         hand_centered = is_hand_centered(hand_lms, img.shape)
+
+                        # Determine Trigger Gesture based on Context
+                        target_gesture = "PROXIMITY"
                         
-                        if not hand_close:
+                        # If we have a pending screenshot to send, REQUIRE FIST
+                        if pending_buffer:
+                            is_fist_detected, f_count = is_fist(hand_lms)
+                            
+                            # Debug Info on Screen
+                            cv2.putText(display_img, f"Fingers Choice: {f_count}/4", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+                            
+                            if is_fist_detected:
+                                target_gesture = "Closed_Fist"
+                                hand_close = True # Bypass proximity check for Fist (it's distinct enough)
+                                
+                                # INSTANT TRIGGER: Bypass timer logic
+                                current_stable_gesture = "Closed_Fist" 
+                                gesture_start_time = current_time - (HOLD_DURATION + 1.0)
+                                print(f"[DEBUG] Fist Detected ({f_count}/4). Triggering Instant Send!")
+                            else:
+                                if f_count > 1:
+                                     print(f"[DEBUG] Partial Fist Detected: {f_count}/4 fingers folded.")
+                                # Feedback: Show "Make a Fist" if user is just holding hand
+                                cv2.putText(display_img, "MAKE A FIST TO SEND", (10, h - 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                                continue # Skip processing until Fist matches
+
+                        if not hand_close and not pending_buffer: 
+                            # Only enforce proximity for initial capture (not sending)
                             gesture_start_time = 0
                             current_stable_gesture = None
                             msg = "BRING HAND CLOSER"
@@ -535,12 +587,12 @@ def main():
                             except: pass
                             continue
 
-                        # 2. Trigger by Position (Any hand is fine if correctly placed)
-                        detected_gesture = "PROXIMITY" 
+                        # 2. Trigger by Position or Specific Gesture
+                        detected_gesture = target_gesture 
                         last_detected_time = current_time # Update persistence
                         
                         # 3. Stability Timer
-                        if current_stable_gesture == "PROXIMITY":
+                        if current_stable_gesture == target_gesture:
                             hold_time = current_time - gesture_start_time
                             
                             # Feedback
@@ -552,7 +604,7 @@ def main():
                                     cv2.putText(display_img, "Ready...", (w//2 - 100, h//2 - 100), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
 
                         else:
-                            current_stable_gesture = "PROXIMITY"
+                            current_stable_gesture = target_gesture
                             gesture_start_time = current_time
                             hold_time = 0
 
@@ -689,24 +741,22 @@ def main():
                         elif not is_manual:
                             last_action_time = current_time
                             
-                            # Re-check server state precisely at trigger time
-                            try:
-                                r = requests.get(f"{SERVER_URL}/has_pending")
-                                has_server_data = r.json().get('data', False)
-                            except: has_server_data = False
+                            # Re-check server state (Use cached value from top of loop to avoid lag)
+                            # has_server_data is updated every 0.5s
 
                             if pending_buffer or has_server_data:
                                 # SYNC CHECK: Before sharing, make sure we haven't been reset (Retake pressed)
                                 # Only check if we are dealing with local pending buffer
-                                if pending_buffer:
-                                    try:
-                                        status_r = requests.get(f"{SERVER_URL}/status", timeout=0.5)
-                                        if status_r.status_code == 200 and not status_r.json().get('captured', False):
-                                            print("[SYSTEM] Cleared pending buffer due to Server Retake Reset.")
-                                            pending_buffer = None
-                                            pending_filename = None
-                                            continue # Skip sharing
-                                    except: pass
+                                # SYNC CHECK: Disabled because it causes race conditions (False Positives)
+                                # if pending_buffer:
+                                #     try:
+                                #         status_r = requests.get(f"{SERVER_URL}/status", timeout=0.5)
+                                #         if status_r.status_code == 200 and not status_r.json().get('captured', False):
+                                #             print("[SYSTEM] Cleared pending buffer due to Server Retake Reset.")
+                                #             pending_buffer = None
+                                #             pending_filename = None
+                                #             continue # Skip sharing
+                                #     except: pass
 
                                 # CASE 1: Something is pending -> SHARE IT
                                 msg = "Sharing to Mobile via Gesture..."
@@ -714,21 +764,28 @@ def main():
                                 print(msg)
                                 
                                 def share_func(buffer, filename, send_data):
+                                    print(f"[DEBUG] Starting Share Process. Send Data? {send_data}")
                                     try:
                                         if buffer:
-                                            requests.post(f"{SERVER_URL}/update_state", 
-                                                         files={'file': (filename, buffer, 'image/jpeg')}, 
+                                            # Ensure filename fallback
+                                            safe_filename = filename if filename else f"capture_{int(time.time())}.jpg"
+                                            resp = requests.post(f"{SERVER_URL}/update_state", 
+                                                         files={'file': (safe_filename, buffer, 'image/jpeg')}, 
                                                          timeout=10)
+                                            print(f"[DEBUG] Upload Status: {resp.status_code}, Response: {resp.text}")
                                             time.sleep(1)
                                         if send_data:
+                                            print("[DEBUG] Committing pending data to server...")
                                             requests.post(f"{SERVER_URL}/commit_pending_data", timeout=5)
                                             time.sleep(1)
-                                        set_server_message("SENDED SUCCESSFULLY")
+                                        
+                                        print("[DEBUG] Share Completed Successfully.")
+                                        set_server_message("SENT SUCCESSFULLY")
                                         # Web HUD Update
                                         requests.post(f"{SERVER_URL}/update_hud", 
-                                                      json={"message": "FILE SUCCESSFULLY SEND", "duration": 4})
+                                                      json={"message": "FILE SENT SUCCESSFULLY", "duration": 4})
                                     except Exception as e:
-                                        print(f"Sharing Error: {e}")
+                                        print(f"Sharing Error (Thread): {e}")
                                 
                                 threading.Thread(target=share_func, 
                                                  args=(pending_buffer, pending_filename, has_server_data), 
@@ -736,8 +793,8 @@ def main():
                                 
                                 pending_buffer = None
                                 pending_filename = None
-                                notification_text = "SENDED SUCCESSFULLY"
-                                set_server_message("SENDED SUCCESSFULLY")
+                                notification_text = "SENT SUCCESSFULLY"
+                                set_server_message("SENT SUCCESSFULLY")
                                 notification_end_time = time.time() + 3.0
                             else:
                                 # CASE 2: Nothing pending -> CAPTURE CURRENT SCREEN (IN-MEMORY)
