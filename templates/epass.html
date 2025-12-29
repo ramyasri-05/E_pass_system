@@ -411,6 +411,17 @@
 
         function triggerCapture() {
             if (btn) {
+                if (btn.innerText.includes("Retake")) {
+                    // Retake Mode
+                    btn.innerText = "Resetting...";
+                    fetch('/retake_capture', { method: 'POST' })
+                        .then(res => res.json())
+                        .then(data => console.log("Retake triggered:", data))
+                        .catch(err => console.error(err));
+                    return;
+                }
+
+                // Capture Mode
                 btn.innerText = "Capturing...";
                 btn.style.opacity = "0.7";
             }
@@ -423,8 +434,12 @@
         // Click anywhere on the card to capture
         document.querySelector('.epass-card').addEventListener('click', (e) => {
             // Don't trigger if clicking a link or the button itself (to avoid double trigger)
-            if (e.target.tagName !== 'A' && e.target.id !== 'capture-btn' && !isStatic) {
-                triggerCapture();
+            if (e.target.tagName !== 'A' && e.target.id !== 'capture-btn') {
+                // Only trigger generic click if NOT in static (captured) mode
+                // If captured, we force user to click the dedicated Retake button
+                if (!isStatic) {
+                    triggerCapture();
+                }
             }
         });
 

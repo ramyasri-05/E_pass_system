@@ -157,6 +157,20 @@ def reset_connection():
     print(f"[SYSTEM] Connection State Reset. New SID: {current_sid}")
     return jsonify({"status": "success", "message": "Connection state reset", "sid": current_sid})
 
+@app.route('/retake_capture', methods=['POST'])
+def retake_capture():
+    global is_captured, pending_data, latest_frame
+    is_captured = False
+    pending_data = None
+    
+    msg = "RETAKING PHOTO..."
+    global hud_message, hud_message_expiry
+    hud_message = msg
+    hud_message_expiry = time.time() + 2.0
+    
+    print("[SYSTEM] Retake requested. Capture state reset.")
+    return jsonify({"status": "success", "message": "Ready to retake"})
+
 def generate_frames():
     global latest_frame
     while True:

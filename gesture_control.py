@@ -230,6 +230,11 @@ def main():
     # Cooldown & Timer Logic
     last_action_time = 0
     cooldown = 0.5 # Faster successive actions
+
+    # Non-Blocking Capture State
+    waiting_for_ui = False
+    ui_wait_start_time = 0
+    ui_wait_duration = 1.5 # Wait 1.5s for UI to update (instead of sleep)
     
     last_status_check_time = 0 # New variable to throttle server polling
     last_frame_push_time = 0   # New variable to throttle video uploads
@@ -313,6 +318,29 @@ def main():
                              server.manual_trigger = False
                              should_run_capture = True
                 except: pass
+
+                # NON-BLOCKING UI WAIT LOGIC
+                if waiting_for_ui:
+                    if current_time - ui_wait_start_time > ui_wait_duration:
+                        # Time to take the screenshot!
+                        waiting_for_ui = False
+                        print("Taking Final Screenshot (Non-blocking)...")
+                        try:
+                            buffer, filename = get_screenshot_buffer()
+                            pending_buffer = buffer
+                            pending_filename = filename
+                            notification_text = "Captured. Gesture to Send."
+                            set_server_message("Captured. Gesture to Send.")
+                            requests.post(f"{SERVER_URL}/update_hud", json={"message": "READY TO SEND", "duration": 4})
+                            notification_end_time = time.time() + 3.0
+                        except Exception as e:
+                            print(f"Screenshot Error: {e}")
+                    else:
+                        # Show waiting message on camera
+                        cv2.putText(display_img, "GENERATING PASS...", (w//2 - 150, h//2), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
+                        
+                        # IMPORTANT: Ensure camera feed continues updating
+                        # (Logic continues below)
 
                 # Camera reading moved inside loop but decoupled from QR display
                 success = False
@@ -643,20 +671,15 @@ def main():
                                     requests.post(f"{SERVER_URL}/set_capture_flag", 
                                                   json={"captured": True, "time": time_str})
                                         
-                                    print("Waiting 3s for UI update...")
-                                    time.sleep(3)
-                                        
-                                    # Retake UI Screenshot (Now In-Memory)
-                                    buffer, filename = get_screenshot_buffer()
-                                        
-                                    pending_buffer = buffer
-                                    pending_filename = filename
-                                    notification_text = "Captured. Gesture to Send."
-                                    set_server_message("Captured. Gesture to Send.")
+                                    print("Waiting for UI update (Non-blocking)...")
+                                    # Set Non-Blocking Wait State
+                                    waiting_for_ui = True
+                                    ui_wait_start_time = time.time()
+                                    
                                     # Web HUD Update
                                     requests.post(f"{SERVER_URL}/update_hud", 
-                                                  json={"message": "READY TO SEND", "duration": 4})
-                                    notification_end_time = time.time() + 3.0
+                                                  json={"message": "GENERATING PASS...", "duration": 2})
+
                                 except Exception as e:
                                     print(f"Capture Error: {e}")
                             except Exception as e:
@@ -673,6 +696,18 @@ def main():
                             except: has_server_data = False
 
                             if pending_buffer or has_server_data:
+                                # SYNC CHECK: Before sharing, make sure we haven't been reset (Retake pressed)
+                                # Only check if we are dealing with local pending buffer
+                                if pending_buffer:
+                                    try:
+                                        status_r = requests.get(f"{SERVER_URL}/status", timeout=0.5)
+                                        if status_r.status_code == 200 and not status_r.json().get('captured', False):
+                                            print("[SYSTEM] Cleared pending buffer due to Server Retake Reset.")
+                                            pending_buffer = None
+                                            pending_filename = None
+                                            continue # Skip sharing
+                                    except: pass
+
                                 # CASE 1: Something is pending -> SHARE IT
                                 msg = "Sharing to Mobile via Gesture..."
                                 set_server_message(msg)
