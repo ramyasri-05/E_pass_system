@@ -206,6 +206,10 @@
         }
 
         function addFileCard(item) {
+            // 0. Hide Waiting State
+            const waitingState = document.getElementById('waiting-state');
+            if (waitingState) waitingState.classList.add('hidden');
+
             // 1. Move current latest to history (if any)
             const latestContainer = document.getElementById('latest-container');
             const historyContainer = document.getElementById('history-container');
@@ -215,13 +219,18 @@
                 historyCount++;
             }
 
+            // Limit history to 3 items
+            while (historyContainer.children.length > 3) {
+                historyContainer.removeChild(historyContainer.lastChild);
+            }
+
             // 2. Add New Card to Latest
             const newCard = createCard(item);
             latestContainer.innerHTML = ''; // Ensure clear
             latestContainer.appendChild(newCard);
 
             // 3. Show "See More" button if history exists
-            if (historyCount > 0) {
+            if (historyContainer.children.length > 0) {
                 document.getElementById('see-more-btn').classList.remove('hidden');
             }
         }
